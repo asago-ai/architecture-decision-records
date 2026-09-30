@@ -1,4 +1,4 @@
-# Open Data Hub - Architecture Decision Record template
+# asago - Architecture Decision Record template
 
 <!-- copy and paste this template to start authoring your own ADR -->
 <!-- for the Status of new ADRs, please use Approved, since it will be approved by the time it is merged -->
@@ -29,7 +29,7 @@ A couple sentences describing why we need an ADR for this.
 ## Non-Goals
 
 * Bulleted list of non-goals
-* 
+
 ## How
 
 A couple sentences describing the high level approach that this ADR captures.
