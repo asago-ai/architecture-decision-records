@@ -4,9 +4,9 @@
 |                |            |
 | -------------- | ---------- |
 | Date           | 1st October 2026 |
-| Scope          | |
+| Scope          | REST API access to existing asago components |
 | Status         | DRAFT |
-| Authors        | [Stuart Battersby](@blastStu) |
+| Authors        | [Stuart Battersby](@blastStu), [Alessandro Beltramo](@ABeltramo) |
 | Supersedes     | N/A |
 | Superseded by: | N/A |
 | Tickets        | |
@@ -14,133 +14,124 @@
 
 ## What
 
-This ADR is about exposing asago components in a unified manner via REST APIs.
+One Asago Server exposes existing asago components through a consistent REST API without orchestration or retained run state.
 
 ## Why
 
-At present the asago components (Policy Mapper, Scenario Generator & Artifact Generator) operate as independent Python programs.  Our end goal is a unified pipeline that can operate both locally and in a cloud/cluster environment.  The first step is creating a consistent API layer.
+At present the asago components (Policy Mapper, Scenario Generator & Artifact Generator) operate as independent Python programs. A consistent REST API supports both local and cloud or cluster use. One server provides this interface without a separate deployment for each component.
 
 ## Goals
 
-* Each asago component, including the Report Generator, is accessible via a REST API
+* Each existing component is accessible through REST endpoints and remains independently useful.
+* API endpoints and output data use versioned contracts.
+* The server and its components are stateless across calls.
 
 ## Non-Goals
 
-* Implementing the external caller that orchestrates the APIs into an end-to-end assessment flow. It could be a notebook example or a simple CLI.
-* Logging results to an external system such as mlflow
+* The external caller owns orchestration and data storage. Its implementation is outside scope.
+* Evaluation execution (such as Garak through EvalHub) remains outside scope.
+* Changes to report generation belong in a separate ADR.
+* External result logging, such as mlflow, remains outside scope.
+* Detailed endpoint and schema definitions belong in API documentation.
 
 ## How
 
-### API Server in front of components
-The Asago Server exposes the Policy Mapper, Scenario Generator, Artifact Generator, and Report Generator (and future components such as the Recommender) through separate REST APIs. An external caller invokes each API, which serves its corresponding component.
+### API server in front of components
+
+The Asago Server exposes one REST API with endpoints for each existing component, as shown below. The server does not orchestrate calls between components.
+
+Each component remains independently usable as a Python package and through its endpoints. A caller can supply valid input without a prior call to another component. Independent use does not require a separate deployment.
 
 ```mermaid
 flowchart LR
     Client["External client (CLI / Notebook)"]
 
     subgraph Asago["Asago Server"]
-        PMAPI["Policy Mapper REST API"] --> PM["Policy Mapper"]
-        SGAPI["Scenario Generator REST API"] --> SG["Scenario Generator"]
-        AGAPI["Artifact Generator REST API"] --> AG["Artifact Generator"]
-        ReportAPI["Report Generator REST API"] --> Report["Report Generator"]
+        PMAPI["Policy Mapper endpoint"] --> PM["Policy Mapper"]
+        SGAPI["Scenario Generator endpoint"] --> SG["Scenario Generator"]
+        AGAPI["Artifact Generator endpoint"] --> AG["Artifact Generator"]
     end
 
     Client --> PMAPI
     Client --> SGAPI
     Client --> AGAPI
-    Client --> ReportAPI
 ```
 
-### Pipeline sequence
+### Illustrative API usage
 
-The external caller is shown only to illustrate API usage. It could be a notebook example or a simple CLI, and its implementation is outside the scope of this ADR. A future Asago component could take on that role in separate work.
+This sequence illustrates one possible caller workflow. It does not require every API call to follow this order. The caller can be a notebook or CLI. Its implementation is outside this ADR.
 
-API calls are synchronous: the caller waits for each response before proceeding to the next stage. If an API call fails, the API returns HTTP 500 with a reason.
+API calls are synchronous. The caller waits for each response.
 
-The components are stateless across API calls. Once a response is returned, the component retains no run state. The external caller is responsible for maintaining state across calls by retaining responses and passing the required data to subsequent APIs.
+The server and its components retain no run state across API calls. Each call is data in, data out. The caller stores the outputs and supplies all required input data to each later request.
+
+The server returns artifacts for external evaluation. The caller or another external service triggers EvalHub evaluations, for example with Garak. The server and its components do not submit or execute evaluations.
 
 ```mermaid
 sequenceDiagram
     actor User
     participant Caller as External component (CLI or notebook)
-    participant PMAPI as Policy Mapper REST API
+    participant PMAPI as Policy Mapper endpoint
     participant PM as Policy Mapper
-    participant SGAPI as Scenario Generator REST API
+    participant SGAPI as Scenario Generator endpoint
     participant SG as Scenario Generator
-    participant AGAPI as Artifact Generator REST API
+    participant AGAPI as Artifact Generator endpoint
     participant AG as Artifact Generator
-    participant ReportAPI as Report Generator REST API
-    participant Report as Report Generator
 
     User->>Caller: Policy document and agent description
 
     Caller->>PMAPI: Policy document
     PMAPI->>PM: Policy document
     PM-->>PMAPI: Risk-extraction payload (JSON)
-    PMAPI-->>Caller: Envelope with version metadata and risk-extraction payload
+    PMAPI-->>Caller: Versioned envelope with risk-extraction payload
 
-    Caller->>SGAPI: Full Policy Mapper response envelope and agent description
+    Caller->>SGAPI: Policy Mapper output and agent description
     SGAPI->>SG: Risk-extraction payload and agent description
     SG-->>SGAPI: Scenarios payload (JSON)
-    SGAPI-->>Caller: Envelope with version metadata and scenarios payload
+    SGAPI-->>Caller: Versioned envelope with scenarios payload
 
-    Caller->>AGAPI: Full Scenario Generator response envelope
+    Caller->>AGAPI: Scenario Generator output
     AGAPI->>AG: Scenarios payload
     AG-->>AGAPI: Artifact payload (JSON)
-    AGAPI-->>Caller: Envelope with version metadata and artifact payload
+    AGAPI-->>Caller: Versioned envelope with artifact payload
 
-    Caller->>ReportAPI: JSON envelopes and payloads from all three components
-    ReportAPI->>Report: JSON envelopes and payloads from all three components
-    Report-->>ReportAPI: HTML reports
-    ReportAPI-->>Caller: HTML reports
-
-    Caller-->>User: JSON payloads, envelopes, and HTML reports
+    Caller-->>User: Component outputs
 ```
 
-### API
-The Policy Mapper, Scenario Generator, and Artifact Generator APIs return JSON in a lightweight envelope. The `envelope_version` identifies the wrapper format, including the component identity and payload fields. The component version identifies the producing release and defines the schema of its payload. The Report Generator REST API returns HTML reports. For each handoff, the caller passes the previous component's full response envelope to the next API, along with any additional input required for that stage. The API validates the envelope and passes the payload to its Python component. For example:
+### API contracts
 
-```
-{
-  "envelope_version": "1",
-  "component": {
-    "name": "policy-mapper",
-    "version": "1.2.0"
-  },
-  "payload": {
-    "risk_extraction": {}
-  }
-}
-```
+API endpoints and output schemas use explicit versions. The version of a component release does not define compatibility between data contracts.
 
-### Report generation
-Report generation is currently implemented within each component. It should move to a separate Report Generator component, exposed through a REST API, that transforms JSON envelopes and payloads into HTML reports. This relies on each component conforming to the versioned payload format.
+Each endpoint returns JSON in a lightweight envelope with separate version metadata for the envelope and payload schema. The envelope also identifies the producer and its component release.
+
+Each endpoint defines the input data it requires. The caller supplies that data in each request, whether it reuses an upstream response or constructs the input independently. There is no blanket requirement to forward all prior envelopes.
+
+Each endpoint validates the input and its contract versions before it passes data to the component. Invalid input or unsupported contract versions return an appropriate 4xx response. Server failures return an appropriate 5xx response. Error responses include a reason without confidential data.
+
+Detailed routes and schemas belong in API documentation.
 
 ### Versioning and release
-Each component should be released as a versioned Python package and included as a dependency of the server: the Policy Mapper, Scenario Generator, Artifact Generator, and Report Generator.
 
-The server itself should have a versioned release, and an associated image built.
-
-
-
-## Open Questions
-
-* Should each downstream component receive the cumulative set of all prior component envelopes, or only the envelope from the immediately preceding component? For example, should the Artifact Generator receive both the Policy Mapper and Scenario Generator envelopes, or only the Scenario Generator envelope?
+Each component is released as a versioned Python package. The server includes these packages as dependencies. The server has its own versioned release and associated image.
 
 ## Alternatives
 
-- Kubeflow pipelines.  It is also possible to run this flow on an orchestration layer such as kubeflow pipelines.  In this scenario each individual component would be an image, passed to a kubeflow step.  However, at this stage this introduces undue complexity.  Nothing in the current approach precludes a future deployment onto kubelfow pipelines (or similar).  The work is not compute heavy (that is done via externally accessed compute at the inference endpoint), so all the work here can happen in a single job.
+* Separate REST services for each component allow independent deployments but add deployment and operational complexity. One server provides a consistent API layer with fewer deployment units.
+* Direct Python calls alone preserve independent local use but do not provide a common interface for remote callers.
 
+Kubeflow pipelines can orchestrate calls to these endpoints. External orchestration is compatible with this decision rather than an alternative to REST exposure.
 
 ## Security and Privacy Considerations
 
-- The data that flows through these APIs may well be confidential.  However this ADR is only considering the API server to access each component.  In this instance the job of security will be on the external calling component (which is outside scope of this ADR).  However, a future component that takes on this job should carefully consider data security.
+API data can be confidential. The server or its deployment boundary must enforce access control and protect data in transit. The caller owns protection of data that it stores or passes to external systems.
 
-- If these jobs were accessed async, and polled via some form of ID, it could be possible to access the run state and data of an unrelated job.  However, they will be synchronous and only return data once the job has completed.
+Synchronous execution does not remove unauthorized access or data disclosure risks. Specific security mechanisms belong in the deployment design.
 
 ## Risks
 
-Optional section. Talk about any risks here.
+* A shared server creates a shared operational failure boundary.
+* Synchronous calls depend on client and server timeout limits.
+* The caller owns orchestration and persistence, which adds work to each integration.
 
 ## Stakeholder Impacts
 
