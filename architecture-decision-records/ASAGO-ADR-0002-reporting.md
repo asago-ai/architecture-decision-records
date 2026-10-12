@@ -50,17 +50,20 @@ The exact request shape remains open and should align with the versioned contrac
 ```mermaid
 sequenceDiagram
     actor Caller as External caller
+    participant Server as Asago Server
     participant Component as asago component
-    participant API as Asago Server REST endpoint
     participant Generator as Report Generator Python API
 
-    Caller->>Component: Invoke component
-    Component-->>Caller: Versioned output payload
-    Caller->>API: Request report from output
-    API->>Generator: Generate report
+    Caller->>Server: Invoke asago component
+    Server->>Component: Forward request
+    Component-->>Server: Versioned output payload
+    Server-->>Caller: Component output payload
+
+    Caller->>Server: Request report from output
+    Server->>Generator: Generate report
     Generator->>Generator: Interpret payload and render format
-    Generator-->>API: PDF, HTML, or Markdown report
-    API-->>Caller: Generated report
+    Generator-->>Server: PDF, HTML, or Markdown report
+    Server-->>Caller: Generated report
 ```
 
 ### Example internal design
