@@ -5,7 +5,7 @@
 | -------------- | ---------- |
 | Date           | 1st October 2026 |
 | Scope          | REST API access to existing asago components |
-| Status         | DRAFT |
+| Status         | APPROVED |
 | Authors        | [Stuart Battersby](@blastStu), [Alessandro Beltramo](@ABeltramo) |
 | Supersedes     | N/A |
 | Superseded by: | N/A |
