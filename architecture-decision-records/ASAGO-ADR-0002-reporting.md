@@ -9,7 +9,7 @@
 | Supersedes     | N/A |
 | Superseded by: | N/A |
 | Tickets        | |
-| Other docs:    | [ASAGO-ADR-0001: Asago Server (PR)](https://github.com/asago-ai/architecture-decision-records/blob/dd8f56fe342f3fd00851cfcc2b6af723cba31c19/architecture-decision-records/ASAGO-ADR-0001-asago-server.md) |
+| Other docs:    | [ASAGO-ADR-0001: Asago Server](https://github.com/asago-ai/architecture-decision-records/blob/main/architecture-decision-records/ASAGO-ADR-0001-asago-server.md) |
 
 ## What
 
@@ -19,7 +19,7 @@ This ADR defines a separate, component-aware Report Generator that interprets ve
 
 Report generation changes component outputs from their native payload format into report formats such as PDF, HTML, or Markdown. It is a format translation rather than a core component responsibility, so it should not sit inside the individual components. Centralizing it gives callers one reporting API, while component-specific logic lets the generator understand the meaning and structure of each component's payload.
 
-This ADR requires ADR 0001 to be approved. It relies on the Asago Server exposing stateless components through a versioned REST API, while callers own orchestration and persistence.
+This ADR relies on the Asago Server exposing stateless components through a versioned REST API, while callers own orchestration and persistence.
 
 ## Goals
 
@@ -135,7 +135,7 @@ Component outputs and generated reports may contain confidential data. The Repor
 
 ## References
 
-* [ASAGO-ADR-0001: Asago Server (PR)](https://github.com/asago-ai/architecture-decision-records/blob/dd8f56fe342f3fd00851cfcc2b6af723cba31c19/architecture-decision-records/ASAGO-ADR-0001-asago-server.md)
+* [ASAGO-ADR-0001: Asago Server](https://github.com/asago-ai/architecture-decision-records/blob/main/architecture-decision-records/ASAGO-ADR-0001-asago-server.md)
 * [PatternFly](https://www.patternfly.org/)
 
 ## Reviews
