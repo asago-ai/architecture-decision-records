@@ -28,6 +28,7 @@ This ADR relies on the Asago Server exposing stateless components through a vers
 * Generate reports from those payloads in PDF, HTML, or Markdown.
 * Make HTML output conform to PatternFly and support replaceable presentation templates.
 * Let the caller select the output format for each report request.
+* Produce both standalone reports for a single component output and combined reports covering multiple component outputs in one request.
 * Expose report generation through the Asago Server REST API.
 * Keep the Report Generator stateless through both its Python API and the Asago Server endpoint; retain no request or report data after returning a result.
 * Validate input contract versions before generating a report and publish the payload schema versions supported by each Report Generator release.
@@ -43,7 +44,7 @@ This ADR relies on the Asago Server exposing stateless components through a vers
 
 ## How
 
-The caller invokes the Python API directly or sends the required, versioned component output data to the Asago Server endpoint, selecting PDF, HTML, or Markdown for the output. For each input, the generator identifies the producing component and payload schema version, then dispatches it to logic that understands that component's payload structure and semantics. It uses the interpreted data to produce the requested format; it does not treat the payload as arbitrary JSON.
+The caller invokes the Python API directly or sends one or more versioned component output envelopes to the Asago Server endpoint, selecting PDF, HTML, or Markdown for the output. For each envelope, the generator identifies the producing component and payload schema version, then dispatches it to logic that understands that component's payload structure and semantics. It uses the interpreted data to produce the requested format; it does not treat the payload as arbitrary JSON.
 
 The exact request shape remains open and should align with the versioned contracts defined in ADR 0001.
 
@@ -74,7 +75,11 @@ This internal design is an example rather than a requirement. The Report Generat
 
 ### Report API
 
-The Report Generator accepts versioned component output data and a requested output format: PDF, HTML, or Markdown. The input identifies the producing component, envelope version, and payload schema version. A component-specific handler interprets each supported payload schema and maps its data into report content. The API returns the report in the selected format. Detailed request and response schemas belong in API documentation.
+The Report Generator accepts a report input and a requested output format: PDF, HTML, or Markdown. The report input is an ordered list of steps, where each step is a component output envelope carrying its producer, envelope version, and payload schema version, as defined in ADR 0001. A request with a single envelope produces a standalone report for that component output. A request with multiple envelopes produces one combined report covering the whole pipeline, such as a report that tracks Policy Mapper, Scenario Generator, and Artifact Generator outputs together.
+
+The step order is caller-declared lineage. The caller owns orchestration, so it is the only party that knows the pipeline order; the generator does not infer relationships between envelopes. The order supplied by the caller is an attestation rather than verified provenance: the generator validates each envelope's component and payload schema version, but it does not verify that one envelope was derived from another.
+
+Each component-specific handler interprets each supported payload schema and maps its data into report content. The generator validates all envelopes in a request before generating the report; if any envelope uses an unsupported component or schema version, the whole request is rejected. The API returns one report in the selected format. Detailed request and response schemas belong in API documentation.
 
 ### Stateless execution and data handling
 
@@ -88,7 +93,7 @@ The template selection mechanism and template format are implementation details 
 
 ### Payload compatibility
 
-Each Report Generator release declares the payload schema versions it supports for each component. Compatibility is based on the payload schema version, not only on the producing component's package release. The compatibility matrix is published with the Report Generator release and in the API documentation. If a request includes outputs from multiple components, each payload must use a schema version supported for that component by the Report Generator release in use. Unsupported component or schema versions are rejected with an appropriate 4xx response and a reason.
+Each Report Generator release declares the payload schema versions it supports for each component. Compatibility is based on the payload schema version, not only on the producing component's package release. The compatibility matrix is published with the Report Generator release and in the API documentation. If a request includes outputs from multiple components, each payload must use a schema version supported for that component by the Report Generator release in use. Unsupported component or schema versions cause the whole request to be rejected with an appropriate 4xx response and a reason.
 
 | Report Generator release | Envelope versions | Policy Mapper payload schema versions | Scenario Generator payload schema versions | Artifact Generator payload schema versions |
 | ------------------------- | ----------------- | ------------------------------------- | ----------------------------------------- | ---------------------------------------- |
@@ -100,7 +105,6 @@ The Report Generator is released as a versioned Python package and included as a
 
 ## Open Questions
 
-* Should the endpoint accept separate component envelopes, a single combined report input, or both? In particular, should the Report Generator create reports for one component at a time, or a global asago report that combines outputs from multiple components?
 * How should a request specify its desired output format?
 * Should the API return the selected format inline or as a downloadable attachment?
 * Should one request produce one format, or can it request multiple formats at once?
