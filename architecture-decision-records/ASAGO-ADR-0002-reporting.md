@@ -132,6 +132,7 @@ Component outputs and generated reports may contain confidential data. The Repor
 * Component output contract changes can make existing report generation incompatible until the Report Generator supports the new payload schema versions, and each newly supported version requires component-specific interpretation logic and a compatibility matrix update. Align Report Generator releases with component contract releases so support remains up to date.
 * Because the generator retains no results, callers must store reports and any component outputs needed for later use. This is an intentional separation of concerns rather than a defect: persistence and tracking currently belong to the external caller, and asago may later provide a separate component for that responsibility, potentially using a system such as MLflow.
 * PDF, HTML, and Markdown renderers may produce different layouts or support different presentation features. This is expected because they are different formats; the important constraint is that each renderer preserves the key semantics of the report content.
+* Producing PDF from HTML typically requires a heavy rendering dependency, such as a headless browser, inside the Report Generator and therefore the Asago Server image. PDF remains a required output format; the rendering approach and its dependency footprint should be evaluated during implementation, alongside alternatives that avoid a headless browser.
 
 ## Stakeholder Impacts
 
