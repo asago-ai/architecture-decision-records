@@ -26,7 +26,7 @@ This ADR relies on the Asago Server exposing stateless components through a vers
 * Provide a separate Report Generator component, released as a versioned Python package.
 * Interpret Policy Mapper, Scenario Generator, and Artifact Generator payloads using component-specific logic.
 * Generate reports from those payloads in PDF, HTML, or Markdown.
-* Make HTML output conform to PatternFly and support replaceable presentation templates.
+* Make HTML output use PatternFly design tokens and an inlined subset of its CSS, so each HTML report is a single self-contained file that reads correctly offline, and support replaceable presentation templates.
 * Let the caller select the output format for each report request.
 * Produce both standalone reports for a single component output and combined reports covering multiple component outputs in one request.
 * Expose report generation through the Asago Server REST API.
@@ -92,7 +92,7 @@ Everything a report renders travels inside the payload body of the request envel
 
 ### HTML technical standard and templates
 
-HTML reports conform to the PatternFly design system. After component-specific handlers map payloads into report content, the HTML renderer applies a lightweight presentation template for styling and layout. Templates are external runtime assets, separate from the generator code, so a template can be applied or replaced without modifying or rebuilding that code. Changing a template affects presentation; it does not change how component payloads are interpreted or which payload schema versions are supported.
+HTML reports use PatternFly design tokens and a subset of its CSS, inlined so that each report is a single self-contained file that reads correctly offline, with no external assets needed to read it. After component-specific handlers map payloads into report content, the HTML renderer applies a lightweight presentation template for styling and layout. Templates are external runtime assets, separate from the generator code, so a template can be applied or replaced without modifying or rebuilding that code. Changing a template affects presentation; it does not change how component payloads are interpreted or which payload schema versions are supported.
 
 The template selection mechanism and template format are implementation details to document with the API and deployment configuration.
 
