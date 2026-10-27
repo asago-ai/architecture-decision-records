@@ -84,6 +84,8 @@ Within a combined report, the generator joins envelopes by the identifiers their
 
 Each component-specific handler interprets each supported payload schema and maps its data into report content. The generator validates all envelopes in a request before generating the report; if any envelope uses an unsupported component or schema version, the whole request is rejected. The API returns one report in the selected format. Detailed request and response schemas belong in API documentation.
 
+The API returns the report inline in the response. Requests and responses are subject to a configurable size limit, documented with the API and enforced with an appropriate 4xx response and a reason; the default value is an API documentation detail rather than an ADR decision. Large runs that exceed the limit are the caller's responsibility to split into multiple reports.
+
 ### Stateless execution and data handling
 
 Both the Python API and the Asago Server REST endpoint process each request without retaining state between calls. The generator may use input data while producing a report, but after returning the result it retains no request payload, generated report, or per-request state. It does not persist this data in files, caches, databases, object stores, or logs. The external calling application is responsible for storing any inputs or results it needs to keep.
@@ -111,7 +113,6 @@ The Report Generator is released as a versioned Python package and included as a
 ## Open Questions
 
 * How should a request specify its desired output format?
-* Should the API return the selected format inline or as a downloadable attachment?
 * Should one request produce one format, or can it request multiple formats at once?
 * How are HTML templates selected or applied: through deployment configuration or per request?
 * Which PatternFly major version should templates target, and which lightweight template format should be supported?
