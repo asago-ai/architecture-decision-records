@@ -80,6 +80,8 @@ The Report Generator accepts a report input and a requested output format: PDF, 
 
 The step order is caller-declared lineage. The caller owns orchestration, so it is the only party that knows the pipeline order; the generator does not infer relationships between envelopes. The order supplied by the caller is an attestation rather than verified provenance: the generator validates each envelope's component and payload schema version, but it does not verify that one envelope was derived from another.
 
+Within a combined report, the generator joins envelopes by the identifiers their payloads declare: for example, the Scenario Generator output references Policy Mapper risk IDs, and the Artifact Generator output references scenario IDs. Following these references is what makes a combined report more than its standalone sections, because it can trace a policy risk through to a harm, hazard, scenario, and the artifacts that test it. Any reference that does not resolve to an envelope in the request is reported in the output. Joining by declared identifiers does not verify provenance; the caller's step order and pairing remain an attestation.
+
 Each component-specific handler interprets each supported payload schema and maps its data into report content. The generator validates all envelopes in a request before generating the report; if any envelope uses an unsupported component or schema version, the whole request is rejected. The API returns one report in the selected format. Detailed request and response schemas belong in API documentation.
 
 ### Stateless execution and data handling
