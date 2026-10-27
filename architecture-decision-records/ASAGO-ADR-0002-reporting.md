@@ -115,7 +115,6 @@ The Report Generator is released as a versioned Python package and included as a
 ## Open Questions
 
 * How are HTML templates selected or applied: through deployment configuration or per request?
-* Which PatternFly major version should templates target, and which lightweight template format should be supported?
 * Should templates affect PDF or Markdown output as well as HTML?
 
 ## Alternatives
