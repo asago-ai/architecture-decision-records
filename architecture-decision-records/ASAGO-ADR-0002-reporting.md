@@ -96,7 +96,7 @@ Everything a report renders travels inside the payload body of the request envel
 
 ### HTML technical standard and templates
 
-HTML reports use PatternFly design tokens and a subset of its CSS, inlined so that each report is a single self-contained file that reads correctly offline, with no external assets needed to read it. After component-specific handlers map payloads into report content, the HTML renderer applies a lightweight presentation template for styling and layout. Templates are external runtime assets, separate from the generator code, so a template can be applied or replaced without modifying or rebuilding that code. Changing a template affects presentation; it does not change how component payloads are interpreted or which payload schema versions are supported.
+HTML reports use PatternFly design tokens and a subset of its CSS, inlined so that each report is a single self-contained file that reads correctly offline, with no external assets needed to read it. After component-specific handlers map payloads into report content, the HTML renderer applies a lightweight presentation template for styling and layout. Templates are external runtime assets, separate from the generator code, so a template can be applied or replaced without modifying or rebuilding that code. Changing a template affects presentation; it does not change how component payloads are interpreted or which payload schema versions are supported. Templates are presentation assets only: they control styling and layout and never determine report content, which comes solely from component-specific interpretation of the payload data. While this section describes HTML templates, the same principle applies to every output format: a template may affect the presentation of PDF or Markdown output where meaningful, but never its content.
 
 The template selection mechanism and template format are implementation details to document with the API and deployment configuration.
 
@@ -115,7 +115,6 @@ The Report Generator is released as a versioned Python package and included as a
 ## Open Questions
 
 * How are HTML templates selected or applied: through deployment configuration or per request?
-* Should templates affect PDF or Markdown output as well as HTML?
 
 ## Alternatives
 
