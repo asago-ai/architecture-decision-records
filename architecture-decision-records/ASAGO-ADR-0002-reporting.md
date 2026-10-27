@@ -30,6 +30,7 @@ This ADR relies on the Asago Server exposing stateless components through a vers
 * Let the caller select the output format for each report request.
 * Produce both standalone reports for a single component output and combined reports covering multiple component outputs in one request.
 * Expose report generation through the Asago Server REST API.
+* Let components use the Report Generator Python API as a library dependency for their standalone CLI reports, so standalone use does not require the Asago Server.
 * Keep the Report Generator stateless through both its Python API and the Asago Server endpoint; retain no request or report data after returning a result.
 * Validate input contract versions before generating a report and publish the payload schema versions supported by each Report Generator release.
 
@@ -103,7 +104,7 @@ Each Report Generator release declares the payload schema versions it supports f
 
 ### Versioning and release
 
-The Report Generator is released as a versioned Python package and included as a dependency of the Asago Server. The server has its own versioned release and associated image, as described in ADR 0001.
+The Report Generator is released as a versioned Python package and included as a dependency of the Asago Server. The server has its own versioned release and associated image, as described in ADR 0001. Components may also depend on the Report Generator package as a library for their standalone CLI reports. This does not create a circular dependency: the Report Generator interprets component outputs but never calls the components.
 
 ## Open Questions
 
