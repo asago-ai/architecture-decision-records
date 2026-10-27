@@ -133,9 +133,9 @@ Component outputs and generated reports may contain confidential data. The Repor
 
 | Group             | Key Contacts     | Date | Impacted? |
 | ----------------- | ---------------- | ---- | --------- |
-| Policy Mapper     | TBD              | TBD  | Yes: remove existing reporting and move it to the Report Generator |
-| Scenario Generator | TBD              | TBD  | Yes: remove existing reporting and move it to the Report Generator |
-| Artifact Generator | TBD              | TBD  | Yes: remove existing reporting and move it to the Report Generator |
+| Policy Mapper     | TBD              | TBD  | Yes: remove existing reporting and move it to the Report Generator; standalone CLI reporting remains available by using the Report Generator as a library |
+| Scenario Generator | TBD              | TBD  | Yes: remove existing reporting and move it to the Report Generator; standalone CLI reporting remains available by using the Report Generator as a library |
+| Artifact Generator | TBD              | TBD  | Yes: remove existing reporting and move it to the Report Generator; standalone CLI reporting remains available by using the Report Generator as a library |
 | Asago Server      | TBD              | TBD  | Yes: add an API endpoint for the Report Generator |
 
 ## References
