@@ -98,7 +98,7 @@ Everything a report renders travels inside the payload body of the request envel
 
 HTML reports use PatternFly design tokens and a subset of its CSS, inlined so that each report is a single self-contained file that reads correctly offline, with no external assets needed to read it. After component-specific handlers map payloads into report content, the HTML renderer applies a lightweight presentation template for styling and layout. Templates are external runtime assets, separate from the generator code, so a template can be applied or replaced without modifying or rebuilding that code. Changing a template affects presentation; it does not change how component payloads are interpreted or which payload schema versions are supported. Templates are presentation assets only: they control styling and layout and never determine report content, which comes solely from component-specific interpretation of the payload data. While this section describes HTML templates, the same principle applies to every output format: a template may affect the presentation of PDF or Markdown output where meaningful, but never its content.
 
-The template selection mechanism and template format are implementation details to document with the API and deployment configuration.
+Deployment configuration defines the set of available templates and the default template. A request may optionally select a template by name from that set; a request naming a template the deployment does not provide is rejected with an appropriate 4xx response and a reason. Callers select from templates the deployment trusts and cannot supply their own, consistent with treating templates as trusted presentation assets. The template format is an implementation detail to document with the API and deployment configuration.
 
 ### Payload compatibility
 
@@ -111,10 +111,6 @@ Each Report Generator release declares the payload schema versions it supports f
 ### Versioning and release
 
 The Report Generator is released as a versioned Python package and included as a dependency of the Asago Server. The server has its own versioned release and associated image, as described in ADR 0001. Components may also depend on the Report Generator package as a library for their standalone CLI reports. This does not create a circular dependency: the Report Generator interprets component outputs but never calls the components.
-
-## Open Questions
-
-* How are HTML templates selected or applied: through deployment configuration or per request?
 
 ## Alternatives
 
