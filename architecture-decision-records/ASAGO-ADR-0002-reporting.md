@@ -78,6 +78,8 @@ This internal design is an example rather than a requirement. The Report Generat
 
 The Report Generator accepts a report input and a requested output format: PDF, HTML, or Markdown. The report input is an ordered list of steps, where each step is a component output envelope carrying its producer, envelope version, and payload schema version, as defined in ADR 0001. A request with a single envelope produces a standalone report for that component output. A request with multiple envelopes produces one combined report covering the whole pipeline, such as a report that tracks Policy Mapper, Scenario Generator, and Artifact Generator outputs together.
 
+The requested output format is an explicit field in the request body, alongside the report input, so it is part of the versioned request contract and behaves identically through the Python API and the REST endpoint. Format is not negotiated through HTTP Accept headers. Each request produces exactly one format: a caller who wants the same report in more than one format makes one request per format.
+
 The step order is caller-declared lineage. The caller owns orchestration, so it is the only party that knows the pipeline order; the generator does not infer relationships between envelopes. The order supplied by the caller is an attestation rather than verified provenance: the generator validates each envelope's component and payload schema version, but it does not verify that one envelope was derived from another.
 
 Within a combined report, the generator joins envelopes by the identifiers their payloads declare: for example, the Scenario Generator output references Policy Mapper risk IDs, and the Artifact Generator output references scenario IDs. Following these references is what makes a combined report more than its standalone sections, because it can trace a policy risk through to a harm, hazard, scenario, and the artifacts that test it. Any reference that does not resolve to an envelope in the request is reported in the output. Joining by declared identifiers does not verify provenance; the caller's step order and pairing remain an attestation.
@@ -112,8 +114,6 @@ The Report Generator is released as a versioned Python package and included as a
 
 ## Open Questions
 
-* How should a request specify its desired output format?
-* Should one request produce one format, or can it request multiple formats at once?
 * How are HTML templates selected or applied: through deployment configuration or per request?
 * Which PatternFly major version should templates target, and which lightweight template format should be supported?
 * Should templates affect PDF or Markdown output as well as HTML?
