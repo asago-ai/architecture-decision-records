@@ -85,6 +85,8 @@ Each component-specific handler interprets each supported payload schema and map
 
 Both the Python API and the Asago Server REST endpoint process each request without retaining state between calls. The generator may use input data while producing a report, but after returning the result it retains no request payload, generated report, or per-request state. It does not persist this data in files, caches, databases, object stores, or logs. The external calling application is responsible for storing any inputs or results it needs to keep.
 
+Everything a report renders travels inside the payload body of the request envelopes. The generator performs no file or network fetches to obtain report content, which preserves statelessness and means the payload compatibility matrix covers all rendered data.
+
 ### HTML technical standard and templates
 
 HTML reports conform to the PatternFly design system. After component-specific handlers map payloads into report content, the HTML renderer applies a lightweight presentation template for styling and layout. Templates are external runtime assets, separate from the generator code, so a template can be applied or replaced without modifying or rebuilding that code. Changing a template affects presentation; it does not change how component payloads are interpreted or which payload schema versions are supported.
