@@ -149,4 +149,4 @@ Synchronous execution does not remove unauthorized access or data disclosure ris
 
 | Reviewed by                   | Date       | Notes |
 | ----------------------------- | ---------  | ------|
-| name                          | date       | ? |
+| Alessandro Beltramo           | 2026-10-13 | |
