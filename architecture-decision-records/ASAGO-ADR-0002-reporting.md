@@ -147,4 +147,4 @@ Component outputs and generated reports may contain confidential data. The Repor
 
 | Reviewed by | Date | Notes |
 | ----------- | ---- | ----- |
-| TBD         | TBD  | Draft |
+| Alessandro Beltramo | 2026-10-28 | |
