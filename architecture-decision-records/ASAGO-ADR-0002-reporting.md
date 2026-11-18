@@ -1,0 +1,150 @@
+# asago - Architecture Decision Record for reporting
+
+|                |            |
+| -------------- | ---------- |
+| Date           | 12th October 2026 |
+| Scope          | Reporting for asago component outputs |
+| Status         | DRAFT |
+| Authors        | [Stuart Battersby](@blastStu) |
+| Supersedes     | N/A |
+| Superseded by: | N/A |
+| Tickets        | |
+| Other docs:    | [ASAGO-ADR-0001: Asago Server](https://github.com/asago-ai/architecture-decision-records/blob/main/architecture-decision-records/ASAGO-ADR-0001-asago-server.md) |
+
+## What
+
+This ADR defines a separate, component-aware Report Generator that interprets versioned payloads from the asago components and produces PDF, HTML, or Markdown reports through an endpoint in the Asago Server REST API.
+
+## Why
+
+Report generation changes component outputs from their native payload format into report formats such as PDF, HTML, or Markdown. It is a format translation rather than a core component responsibility, so it should not sit inside the individual components. Centralizing it gives callers one reporting API, while component-specific logic lets the generator understand the meaning and structure of each component's payload.
+
+This ADR relies on the Asago Server exposing stateless components through a versioned REST API, while callers own orchestration and persistence.
+
+## Goals
+
+* Provide a separate Report Generator component, released as a versioned Python package.
+* Interpret Policy Mapper, Scenario Generator, and Artifact Generator payloads using component-specific logic.
+* Generate reports from those payloads in PDF, HTML, or Markdown.
+* Make HTML output use PatternFly design tokens and an inlined subset of its CSS, so each HTML report is a single self-contained file that reads correctly offline, and support replaceable presentation templates.
+* Let the caller select the output format for each report request.
+* Produce both standalone reports for a single component output and combined reports covering multiple component outputs in one request.
+* Expose report generation through the Asago Server REST API.
+* Let components use the Report Generator Python API as a library dependency for their standalone CLI reports, so standalone use does not require the Asago Server.
+* Keep the Report Generator stateless through both its Python API and the Asago Server endpoint; retain no request or report data after returning a result.
+* Validate input contract versions before generating a report and publish the payload schema versions supported by each Report Generator release.
+
+## Non-Goals
+
+* Orchestrating calls to the Policy Mapper, Scenario Generator, or Artifact Generator. The caller owns orchestration.
+* Running evaluations, including EvalHub evaluations.
+* Persisting input payloads or generated reports. The external calling application owns storage.
+* Rendering arbitrary JSON without a supported component-specific handler; the generator is not a generic JSON-to-report converter.
+* Defining the detailed report content or a particular branded template in this ADR.
+* Defining endpoint and schema documentation in this ADR.
+
+## How
+
+The caller invokes the Python API directly or sends one or more versioned component output envelopes to the Asago Server endpoint, selecting PDF, HTML, or Markdown for the output. For each envelope, the generator identifies the producing component and payload schema version, then dispatches it to logic that understands that component's payload structure and semantics. It uses the interpreted data to produce the requested format; it does not treat the payload as arbitrary JSON.
+
+The exact request shape remains open and should align with the versioned contracts defined in ADR 0001.
+
+```mermaid
+sequenceDiagram
+    actor Caller as External caller
+    participant Server as Asago Server
+    participant Component as asago component
+    participant Generator as Report Generator Python API
+
+    Caller->>Server: Invoke asago component
+    Server->>Component: Forward request
+    Component-->>Server: Versioned output payload
+    Server-->>Caller: Component output payload
+
+    Caller->>Server: Request report from output
+    Server->>Generator: Generate report
+    Generator->>Generator: Interpret payload and render format
+    Generator-->>Server: PDF, HTML, or Markdown report
+    Server-->>Caller: Generated report
+```
+
+### Example internal design
+
+One possible implementation is for component-specific handlers to map validated payloads into a shared internal report content representation. For example, that representation could contain report metadata, sections, paragraphs, data tables, metric lists, and callouts. Format-specific renderers could then consume that representation to produce HTML, Markdown, or PDF. This separates payload interpretation from presentation and can avoid duplicating component-specific logic for each output format. A PDF renderer could produce output directly from the shared representation or use a deterministic rendering path based on the HTML output.
+
+This internal design is an example rather than a requirement. The Report Generator may use a different internal structure or rendering approach, provided it still uses component-specific logic to interpret supported payloads and produces the selected output format.
+
+### Report API
+
+The Report Generator accepts a report input and a requested output format: PDF, HTML, or Markdown. The report input is an ordered list of steps, where each step is a component output envelope carrying its producer, envelope version, and payload schema version, as defined in ADR 0001. A request with a single envelope produces a standalone report for that component output. A request with multiple envelopes produces one combined report covering the whole pipeline, such as a report that tracks Policy Mapper, Scenario Generator, and Artifact Generator outputs together.
+
+The requested output format is an explicit field in the request body, alongside the report input, so it is part of the versioned request contract and behaves identically through the Python API and the REST endpoint. Format is not negotiated through HTTP Accept headers. Each request produces exactly one format: a caller who wants the same report in more than one format makes one request per format.
+
+The step order is caller-declared lineage. The caller owns orchestration, so it is the only party that knows the pipeline order; the generator does not infer relationships between envelopes. The order supplied by the caller is an attestation rather than verified provenance: the generator validates each envelope's component and payload schema version, but it does not verify that one envelope was derived from another.
+
+Within a combined report, the generator joins envelopes by the identifiers their payloads declare: for example, the Scenario Generator output references Policy Mapper risk IDs, and the Artifact Generator output references scenario IDs. Following these references is what makes a combined report more than its standalone sections, because it can trace a policy risk through to a harm, hazard, scenario, and the artifacts that test it. Any reference that does not resolve to an envelope in the request is reported in the output. Joining by declared identifiers does not verify provenance; the caller's step order and pairing remain an attestation.
+
+Each component-specific handler interprets each supported payload schema and maps its data into report content. The generator validates all envelopes in a request before generating the report; if any envelope uses an unsupported component or schema version, the whole request is rejected. The API returns one report in the selected format. Detailed request and response schemas belong in API documentation.
+
+The API returns the report inline in the response. Requests and responses are subject to a configurable size limit, documented with the API and enforced with an appropriate 4xx response and a reason; the default value is an API documentation detail rather than an ADR decision. Large runs that exceed the limit are the caller's responsibility to split into multiple reports.
+
+### Stateless execution and data handling
+
+Both the Python API and the Asago Server REST endpoint process each request without retaining state between calls. The generator may use input data while producing a report, but after returning the result it retains no request payload, generated report, or per-request state. It does not persist this data in files, caches, databases, object stores, or logs. The external calling application is responsible for storing any inputs or results it needs to keep.
+
+Everything a report renders travels inside the payload body of the request envelopes. The generator performs no file or network fetches to obtain report content, which preserves statelessness and means the payload compatibility matrix covers all rendered data.
+
+### HTML technical standard and templates
+
+HTML reports use PatternFly design tokens and a subset of its CSS, inlined so that each report is a single self-contained file that reads correctly offline, with no external assets needed to read it. After component-specific handlers map payloads into report content, the HTML renderer applies a lightweight presentation template for styling and layout. Templates are external runtime assets, separate from the generator code, so a template can be applied or replaced without modifying or rebuilding that code. Changing a template affects presentation; it does not change how component payloads are interpreted or which payload schema versions are supported. Templates are presentation assets only: they control styling and layout and never determine report content, which comes solely from component-specific interpretation of the payload data. While this section describes HTML templates, the same principle applies to every output format: a template may affect the presentation of PDF or Markdown output where meaningful, but never its content.
+
+Deployment configuration defines the set of available templates and the default template. A request may optionally select a template by name from that set; a request naming a template the deployment does not provide is rejected with an appropriate 4xx response and a reason. Callers select from templates the deployment trusts and cannot supply their own, consistent with treating templates as trusted presentation assets. The template format is an implementation detail to document with the API and deployment configuration.
+
+### Payload compatibility
+
+Each Report Generator release declares the payload schema versions it supports for each component. Compatibility is based on the payload schema version, not only on the producing component's package release. The compatibility matrix is published with the Report Generator release and in the API documentation. If a request includes outputs from multiple components, each payload must use a schema version supported for that component by the Report Generator release in use. Unsupported component or schema versions cause the whole request to be rejected with an appropriate 4xx response and a reason.
+
+| Report Generator release | Envelope versions | Policy Mapper payload schema versions | Scenario Generator payload schema versions | Artifact Generator payload schema versions |
+| ------------------------- | ----------------- | ------------------------------------- | ----------------------------------------- | ---------------------------------------- |
+| TBD                       | TBD               | TBD                                   | TBD                                       | TBD                                      |
+
+### Versioning and release
+
+The Report Generator is released as a versioned Python package and included as a dependency of the Asago Server. The server has its own versioned release and associated image, as described in ADR 0001. Components may also depend on the Report Generator package as a library for their standalone CLI reports. This does not create a circular dependency: the Report Generator interprets component outputs but never calls the components.
+
+## Alternatives
+
+* Keep report generation within each component. This avoids introducing another package and endpoint, but is rejected because it does not provide a clean separation of concerns between a component's function and the translation of its output into report formats.
+* Have the external caller generate reports. This avoids adding reporting behavior to the server, but is rejected because reporting is a core purpose of asago rather than a responsibility to duplicate across callers.
+* Convert arbitrary JSON to a report without component-specific interpretation. This is rejected because the Report Generator is asago-specific and tied to supported component payload versions, not a general JSON-to-report maker.
+
+## Security and Privacy Considerations
+
+Component outputs and generated reports may contain confidential data. The Report Generator API and its deployment must follow the access control and data protection requirements for the Asago Server. Request and report content must not be written to logs or persistent storage by the generator. Generated HTML and Markdown must safely handle content from component outputs; PDF generation must not execute untrusted content or fetch unintended external resources. Runtime templates must be treated as trusted presentation assets and must not bypass output escaping or expose report data.
+
+## Risks
+
+* Component output contract changes can make existing report generation incompatible until the Report Generator supports the new payload schema versions, and each newly supported version requires component-specific interpretation logic and a compatibility matrix update. Align Report Generator releases with component contract releases so support remains up to date.
+* Because the generator retains no results, callers must store reports and any component outputs needed for later use. This is an intentional separation of concerns rather than a defect: persistence and tracking currently belong to the external caller, and asago may later provide a separate component for that responsibility, potentially using a system such as MLflow.
+* PDF, HTML, and Markdown renderers may produce different layouts or support different presentation features. This is expected because they are different formats; the important constraint is that each renderer preserves the key semantics of the report content.
+* Producing PDF from HTML typically requires a heavy rendering dependency, such as a headless browser, inside the Report Generator and therefore the Asago Server image. PDF remains a required output format; the rendering approach and its dependency footprint should be evaluated during implementation, alongside alternatives that avoid a headless browser.
+
+## Stakeholder Impacts
+
+| Group             | Key Contacts     | Date | Impacted? |
+| ----------------- | ---------------- | ---- | --------- |
+| Policy Mapper     | TBD              | TBD  | Yes: remove existing reporting and move it to the Report Generator; standalone CLI reporting remains available by using the Report Generator as a library |
+| Scenario Generator | TBD              | TBD  | Yes: remove existing reporting and move it to the Report Generator; standalone CLI reporting remains available by using the Report Generator as a library |
+| Artifact Generator | TBD              | TBD  | Yes: remove existing reporting and move it to the Report Generator; standalone CLI reporting remains available by using the Report Generator as a library |
+| Asago Server      | TBD              | TBD  | Yes: add an API endpoint for the Report Generator |
+
+## References
+
+* [ASAGO-ADR-0001: Asago Server](https://github.com/asago-ai/architecture-decision-records/blob/main/architecture-decision-records/ASAGO-ADR-0001-asago-server.md)
+* [PatternFly](https://www.patternfly.org/)
+
+## Reviews
+
+| Reviewed by | Date | Notes |
+| ----------- | ---- | ----- |
+| Alessandro Beltramo | 2026-10-28 | |
